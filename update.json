@@ -1,0 +1,29 @@
+{
+ "apk": 10,
+ "minApk": 10,
+ "web": 10,
+ "webNeedsApk": 10,
+ "apkUrl": "https://kakadoo91.github.io/adamak-saz/AdamakSaz.apk",
+ "files": [
+  {
+   "p": "GLTFLoader.js",
+   "h": "b2edda923572c73e6b30b139756d182c87e2c34d022845c6e067a9a0a9544e01"
+  },
+  {
+   "p": "index.html",
+   "h": "47cb0fdebc053dd6dba0a87576f008cbfc143c87e775d9e81f4f30215cfadd12"
+  },
+  {
+   "p": "mp4-muxer.js",
+   "h": "bba88082053511b898c921e71a865478821a674d779ba0c7028c78c921fecaf6"
+  },
+  {
+   "p": "three.min.js",
+   "h": "f34446bf875b5fb0dcd93819ffe1d9e182d46634ee855f5d904c6c4ac7cdbc95"
+  },
+  {
+   "p": "version.txt",
+   "h": "917df3320d778ddbaa5c5c7742bc4046bf803c36ed2b050f30844ed206783469"
+  }
+ ]
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>آدمک‌ساز</title>
+<style>
+:root{--bg:#dfeefe;--panel:#fff;--ink:#1d2742;--muted:#5d6a8a;--go:#1fae6b;--node:#ff7a1a}
+@media (prefers-color-scheme:dark){:root{--bg:#111a2b;--panel:#1b2740;--ink:#eef3ff;--muted:#9fb0d4;color-scheme:dark}}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 16px;box-sizing:border-box}
+main{background:var(--panel);border:3px solid var(--ink);border-radius:24px;padding:28px 22px;max-width:420px;width:100%;text-align:center;box-shadow:0 6px 0 var(--ink)}
+svg{width:96px;height:96px}
+h1{margin:12px 0 4px;font-size:2rem}
+p{color:var(--muted);line-height:1.7;margin:8px 0}
+a.dl{display:inline-flex;align-items:center;gap:10px;margin-top:16px;padding:14px 28px;border-radius:18px;border:3px solid var(--ink);
+  background:var(--go);color:#fff;font-size:1.4rem;font-weight:800;text-decoration:none;box-shadow:0 4px 0 var(--ink)}
+a.dl:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+small{display:block;margin-top:18px;color:var(--muted);font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+  <svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#ff7a1a"/><g stroke="#1d2742" stroke-width="3.4" stroke-linecap="round" fill="none"><path d="M24 29V18M24 18l-7-6M24 18l7 5 4-5M24 29l-5 7-3 5M24 29l6 6 1 6"/></g><circle cx="24" cy="11" r="5" fill="#1d2742"/></svg>
+  <h1>آدمک‌ساز</h1>
+  <p>اپ ساخت انیمیشن آدمکی برای بچه‌ها. این صفحه را روی تبلت یا گوشی اندروید باز کنید و فایل را نصب کنید.</p>
+  <a class="dl" href="AdamakSaz.apk" download>⬇️ دانلود برای اندروید</a>
+  <p>بعد از نصب، اپ خودش آپدیت می‌شود.</p>
+  <small id="v"></small>
+</main>
+<script>
+fetch('update.json',{cache:'no-store'}).then(r=>r.json()).then(u=>{document.getElementById('v').textContent='نسخه‌ی '+u.apk;}).catch(()=>{});
+</script>
+</body>
+</html>
