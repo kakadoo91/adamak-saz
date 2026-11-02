@@ -361,7 +361,7 @@ canvas#stage{width:100%;height:auto;aspect-ratio:8/5;display:block;touch-action:
 <script>
 (function(){
 const LIB3D=['three.min.js','GLTFLoader.js'];
-const WEBVER=12;
+const WEBVER=13;
 const W=800,H=500,GROUND=420,LANES=3,MAXL=8;
 const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
 const $=id=>document.getElementById(id);
@@ -1027,7 +1027,8 @@ const end=e=>{ptrs.delete(e.pointerId);
 cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
 
 /* ---------- buttons ---------- */
-function addFrame(){stop();selFrames=null;snap();const {st}=starts(),c=clone(S.frames[S.cur]),at=st[S.cur]+S.frames[S.cur].len;
+/* a new frame keeps the stickmen and objects (so they can be posed again) but starts with a clean drawing: the last frame's drawing shows only as the onion skin */
+function addFrame(){stop();selFrames=null;snap();const {st}=starts(),c=clone(S.frames[S.cur]),at=st[S.cur]+S.frames[S.cur].len;c.d=[];
   shiftAfter(at,c.len);S.frames.splice(S.cur+1,0,c);S.cur++;update();}
 $('bAdd').onclick=addFrame;
 $('selDel').onclick=()=>{if(!selFrames||selFrames.size>=S.frames.length)return;stop();snap();
