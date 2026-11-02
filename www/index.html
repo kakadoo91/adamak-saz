@@ -361,7 +361,7 @@ canvas#stage{width:100%;height:auto;aspect-ratio:8/5;display:block;touch-action:
 <script>
 (function(){
 const LIB3D=['three.min.js','GLTFLoader.js'];
-const WEBVER=10;
+const WEBVER=11;
 const W=800,H=500,GROUND=420,LANES=3,MAXL=8;
 const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
 const $=id=>document.getElementById(id);
@@ -432,7 +432,7 @@ try{const u=JSON.parse(localStorage.getItem('adamak-ui'));if(u&&u.mode)UI={mode:
 const saveUI=()=>{try{localStorage.setItem('adamak-ui',JSON.stringify(UI))}catch(e){}};
 const on=f=>UI.mode==='adv'||!!UI.simple[f];
 
-function blank(){return {figs:[{color:COLORS[0]}],props:[],frames:[{p:[pose(400)],o:[],d:[],len:1}],snd:[],lanes:LANES,cur:0,speed:1,bg:0,loop:true};}
+function blank(){return {figs:[{color:COLORS[0]}],props:[],frames:[{p:[pose(400)],o:[],d:[],len:1,bg:0}],snd:[],lanes:LANES,cur:0,speed:1,bg:0,loop:true};}
 function sample(){
   const p1=pose(330), p2=clone(p1); p2.a.uaR=-30; p2.a.laR=-40;
   const p3=clone(p2); p3.a.laR=25;
@@ -450,7 +450,7 @@ function normalize(s){if(!s||!Array.isArray(s.frames)||!s.frames.length||!Array.
   s.frames.forEach(f=>delete f.s);
   s.snd=s.snd.filter(x=>x&&(x.k==='sfx'||x.k==='clip')).map(x=>Object.assign(x,{t:Math.max(0,+x.t||0),lane:Math.max(0,Math.min(MAXL-1,x.lane|0))}));
   s.lanes=Math.max(1,Math.min(MAXL,Math.max(s.lanes|0||LANES,...s.snd.map(x=>x.lane+1))));
-  s.speed=[0,1,2].includes(s.speed)?s.speed:1;s.bg=[0,1,2,3].includes(s.bg)?s.bg:0;s.cur=Math.min(s.frames.length-1,Math.max(0,s.cur|0));
+  s.speed=[0,1,2].includes(s.speed)?s.speed:1;s.bg=[0,1,2,3].includes(s.bg)?s.bg:0;s.frames.forEach(f=>{if(![0,1,2,3].includes(f.bg))f.bg=s.bg;});s.cur=Math.min(s.frames.length-1,Math.max(0,s.cur|0));
   s.loop=s.loop!==false;
   return s;}
 let S=sample();
@@ -589,8 +589,8 @@ function solve(p,sc){
 }
 const STARS=Array.from({length:40},(_,i)=>[(i*197)%W,(i*83)%300,1+(i%3)]);
 const SCENES=['🌳','🌙','📄','🏖️'];
-function drawBg(c){
-  const b=S.bg;
+function drawBg(c,b){
+  if(b===undefined)b=S.bg;
   if(b===0){c.fillStyle='#bfe3ff';c.fillRect(0,0,W,H);c.fillStyle='#ffd23f';c.beginPath();c.arc(720,80,40,0,7);c.fill();
     c.fillStyle='#6cc24a';c.fillRect(0,GROUND,W,H-GROUND);}
   else if(b===1){c.fillStyle='#1b2350';c.fillRect(0,0,W,H);c.fillStyle='#fff';STARS.forEach(([x,y,r])=>{c.beginPath();c.arc(x,y,r,0,7);c.fill()});
@@ -699,7 +699,7 @@ function drawHandles(c,p,k,sc){
   c.fillStyle='#e6334d';c.beginPath();c.arc(p.x,p.y,r*1.2,0,7);c.fill();c.stroke();
 }
 function drawFrame(c,fr,opts={}){
-  drawBg(c);
+  drawBg(c,fr.bg);
   if(opts.ghost&&UI.onion!==false)drawGhost(c,opts.ghost);
   drawStrokes(c,fr.d);
   S.props.forEach((pr,i)=>fr.o[i]&&drawProp(c,pr,fr.o[i],1));
@@ -715,7 +715,7 @@ function frameAt(ms){
   let i=0;while(i<n-1&&st[i+1]<=pos)i++;
   const raw=(pos-st[i])/S.frames[i].len,hold=once&&i===n-1,t=hold?0:ease(Math.min(1,raw)),A=S.frames[i],B=S.frames[(i+1)%n];
   return {i,raw,pos,fr:{p:A.p.map((p,k)=>lerpPose(p,B.p[k],t)),
-    o:A.o.map((o,k)=>{const b=B.o[k]||o;return {x:lerp(o.x,b.x,t),y:lerp(o.y,b.y,t),r:lerpA(o.r||0,b.r||0,t),s:lerp(o.s||1,b.s||1,t)};}),d:A.d}};
+    o:A.o.map((o,k)=>{const b=B.o[k]||o;return {x:lerp(o.x,b.x,t),y:lerp(o.y,b.y,t),r:lerpA(o.r||0,b.r||0,t),s:lerp(o.s||1,b.s||1,t)};}),d:A.d,bg:A.bg}};
 }
 
 let playing=false,playT=0,last=0,drag=null,mode='move',pen=PENS[0],lastFrame=-1,lastPos=-1,bus=null,selSnd=-1,selProp=-1;
@@ -905,7 +905,7 @@ function applyFeatures(){document.querySelectorAll('[data-f]').forEach(el=>{el.h
 function update(doSave=true){$('badge').textContent=fa(S.cur+1)+' / '+fa(S.frames.length);
   $('bDel').disabled=S.frames.length<2;undoBtns();
   $('bFig').disabled=S.figs.length>=COLORS.length;$('bRig').classList.toggle('on',isRigged());
-  $('bgIco').textContent=SCENES[S.bg];
+  {const fb=S.frames[S.cur].bg;$('bgIco').textContent=SCENES[fb===undefined?S.bg:fb];}
   $('speedIco').textContent=['🐢','🚶','🐇'][S.speed];
   $('loopIco').textContent=S.loop?'🔁':'1️⃣';
   const L=S.frames[S.cur].len;$('lenTxt').textContent='⏱ '+fa(L);$('lenMinus').disabled=L<=1;$('lenPlus').disabled=L>=8;
@@ -1032,7 +1032,10 @@ $('bSpeed').onclick=()=>{S.speed=(S.speed+1)%3;update();};
 $('bLoop').onclick=()=>{S.loop=!S.loop;update();};
 $('bOnion').onclick=()=>{UI.onion=UI.onion===false;saveUI();$('bOnion').classList.toggle('on',UI.onion!==false);render();};
 $('bOnion').classList.toggle('on',UI.onion!==false);
-$('bBg').onclick=()=>{snap();S.bg=(S.bg+1)%SCENES.length;update();};
+/* each frame has its own scene; tap = change this frame, hold = use this frame's scene on every frame */
+longPress($('bBg'),()=>{stop();snap();const fb=S.frames[S.cur].bg;S.frames.forEach(f=>f.bg=fb);S.bg=fb;
+  const b=$('bBg');b.classList.remove('pulse');void b.offsetWidth;b.classList.add('pulse');update();},
+  ()=>{stop();snap();const f=S.frames[S.cur],cur=f.bg===undefined?S.bg:f.bg;f.bg=(cur+1)%SCENES.length;update();});
 function changeLen(d){const f=S.frames[S.cur],n=f.len+d;if(n<1||n>8)return;snap();const {st}=starts();shiftAfter(st[S.cur]+f.len,d);f.len=n;update();}
 $('lenMinus').onclick=()=>changeLen(-1);$('lenPlus').onclick=()=>changeLen(1);
 $('bFig').onclick=()=>{stop();const n=S.figs.length;if(n>=COLORS.length)return;snap();
