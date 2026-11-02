@@ -361,13 +361,14 @@ canvas#stage{width:100%;height:auto;aspect-ratio:8/5;display:block;touch-action:
 <script>
 (function(){
 const LIB3D=['three.min.js','GLTFLoader.js'];
-const WEBVER=11;
+const WEBVER=12;
 const W=800,H=500,GROUND=420,LANES=3,MAXL=8;
 const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
 const $=id=>document.getElementById(id);
 const COLORS=['#2b6fe0','#e6334d','#1fae6b','#8a3fd1','#ff9f1a','#00a3a3','#d63fa0','#6b4f2a'];
 const PENS=['#1d2742','#ffffff','#e6334d','#ff7ab0','#ff9f1a','#ffd23f','#1fae6b','#7ed957','#2b6fe0','#7fd0ff','#8a3fd1','#8a5a2b'];
-const SIZES=[4,9,16,28];let brush=9;
+const SIZES=[4,9,16,28];let brush=9,eraseAt=null;
+const eraserW=()=>Math.round(brush*2.4);
 const BONES=[
   {id:'torso',p:null,len:62},{id:'head',p:'torso',len:26},
   {id:'uaL',p:'torso',len:36},{id:'laL',p:'uaL',len:32},
@@ -469,7 +470,7 @@ async function dbDel(st,k){try{const d=await idb();await new Promise(res=>{const
 const hist=[],fut=[];
 function undoBtns(){$('bUndo').disabled=!hist.length;$('bRedo').disabled=!fut.length;}
 function snap(){hist.push(JSON.stringify(S));if(hist.length>80)hist.shift();fut.length=0;undoBtns();}
-function afterHist(){if(S.cur>=S.frames.length)S.cur=S.frames.length-1;selSnd=-1;selProp=-1;selFrames=null;armedSnd=-1;update();}
+function afterHist(){if(S.cur>=S.frames.length)S.cur=S.frames.length-1;selSnd=-1;selProp=-1;selFig=-1;selFrames=null;armedSnd=-1;update();}
 function undo(){stop();if(!hist.length)return;fut.push(JSON.stringify(S));S=JSON.parse(hist.pop());afterHist();}
 function redo(){stop();if(!fut.length)return;hist.push(JSON.stringify(S));S=JSON.parse(fut.pop());afterHist();}
 
@@ -572,7 +573,7 @@ const dpr=Math.min(window.devicePixelRatio||1,2);
 cv.width=W*dpr;cv.height=H*dpr;
 const ghostCv=document.createElement('canvas');ghostCv.width=W*dpr;ghostCv.height=H*dpr;const gx=ghostCv.getContext('2d');
 function drawGhost(c,fr){gx.setTransform(1,0,0,1,0,0);gx.globalCompositeOperation='source-over';gx.globalAlpha=1;gx.clearRect(0,0,ghostCv.width,ghostCv.height);
-  if(c.getTransform)gx.setTransform(c.getTransform());else gx.setTransform(dpr,0,0,dpr,0,0);drawStrokes(gx,fr.d);S.props.forEach((pr,i)=>fr.o[i]&&drawProp(gx,pr,fr.o[i],1));fr.p.forEach((p,i)=>S.figs[i]&&drawFig(gx,p,S.figs[i],1,false));
+  if(c.getTransform)gx.setTransform(c.getTransform());else gx.setTransform(dpr,0,0,dpr,0,0);drawStrokes(gx,fr.d);S.props.forEach((pr,i)=>fr.o[i]&&!fr.o[i].h&&drawProp(gx,pr,fr.o[i],1));fr.p.forEach((p,i)=>S.figs[i]&&drawFig(gx,p,S.figs[i],1,false));
   gx.setTransform(1,0,0,1,0,0);gx.globalCompositeOperation='source-atop';gx.globalAlpha=.65;gx.fillStyle='#4f6fd8';gx.fillRect(0,0,ghostCv.width,ghostCv.height);
   gx.globalCompositeOperation='source-over';gx.globalAlpha=1;
   c.save();c.setTransform(1,0,0,1,0,0);c.globalAlpha=.35;c.drawImage(ghostCv,0,0,c.canvas.width,c.canvas.height);c.restore();}
@@ -607,7 +608,8 @@ function drawStrokes(c,d){
   c.lineCap='round';c.lineJoin='round';
   for(const s of d){const p=s.pts,k=s.k||'pen';
     if(k==='fill'){const im=fillImg(s);if(!imgReady(im))continue;if(s.rot){c.save();c.translate(s.x+s.w/2,s.y+s.h/2);c.rotate(s.rot*Math.PI/180);c.drawImage(im,-s.w/2,-s.h/2,s.w,s.h);c.restore();}else c.drawImage(im,s.x,s.y,s.w,s.h);continue;}
-    c.save();c.strokeStyle=s.c;c.lineWidth=s.w;if(k==='mark')c.globalAlpha*=.45;
+    c.save();c.strokeStyle=s.c||'#000';c.lineWidth=s.w;if(k==='mark')c.globalAlpha*=.45;
+    if(k==='er'){c.globalCompositeOperation='destination-out';c.strokeStyle='#000';}
     if(k==='line'){c.beginPath();c.moveTo(p[0],p[1]);c.lineTo(p[2],p[3]);c.stroke();}
     else if(k==='rect'){c.strokeRect(Math.min(p[0],p[2]),Math.min(p[1],p[3]),Math.abs(p[2]-p[0]),Math.abs(p[3]-p[1]));}
     else if(k==='oval'){c.beginPath();c.ellipse((p[0]+p[2])/2,(p[1]+p[3])/2,Math.abs(p[2]-p[0])/2+.1,Math.abs(p[3]-p[1])/2+.1,0,0,Math.PI*2);c.stroke();}
@@ -616,6 +618,13 @@ function drawStrokes(c,d){
     else{c.beginPath();if(p.length===2){c.moveTo(p[0],p[1]);c.lineTo(p[0]+.1,p[1]);}else{c.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)c.lineTo(p[i],p[i+1]);}c.stroke();}
     c.restore();}
 }
+/* the drawing layer is painted on its own sheet so the eraser removes paint without touching the scene behind it */
+const layerCv=document.createElement('canvas');
+function drawLayer(c,d){if(!d.some(s=>s.k==='er')){drawStrokes(c,d);return;}
+  const cw=c.canvas.width,ch=c.canvas.height;if(layerCv.width!==cw||layerCv.height!==ch){layerCv.width=cw;layerCv.height=ch;}
+  const lx=layerCv.getContext('2d');lx.setTransform(1,0,0,1,0,0);lx.globalCompositeOperation='source-over';lx.globalAlpha=1;lx.clearRect(0,0,cw,ch);
+  lx.setTransform(c.getTransform?c.getTransform():new DOMMatrix([1,0,0,1,0,0]));drawStrokes(lx,d);
+  c.save();c.setTransform(1,0,0,1,0,0);c.drawImage(layerCv,0,0);c.restore();}
 function hexRGB(h){const n=parseInt(String(h).slice(1),16)||0;return [(n>>16)&255,(n>>8)&255,n&255];}
 /* bucket fill: flood the drawing layer from the tapped pixel and keep the result as an image */
 function doFill(x,y,col){
@@ -701,8 +710,8 @@ function drawHandles(c,p,k,sc){
 function drawFrame(c,fr,opts={}){
   drawBg(c,fr.bg);
   if(opts.ghost&&UI.onion!==false)drawGhost(c,opts.ghost);
-  drawStrokes(c,fr.d);
-  S.props.forEach((pr,i)=>fr.o[i]&&drawProp(c,pr,fr.o[i],1));
+  drawLayer(c,fr.d);
+  S.props.forEach((pr,i)=>fr.o[i]&&!fr.o[i].h&&drawProp(c,pr,fr.o[i],1));
   fr.p.forEach((p,i)=>drawFig(c,p,S.figs[i],1,!!opts.edit));
 }
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -715,14 +724,15 @@ function frameAt(ms){
   let i=0;while(i<n-1&&st[i+1]<=pos)i++;
   const raw=(pos-st[i])/S.frames[i].len,hold=once&&i===n-1,t=hold?0:ease(Math.min(1,raw)),A=S.frames[i],B=S.frames[(i+1)%n];
   return {i,raw,pos,fr:{p:A.p.map((p,k)=>lerpPose(p,B.p[k],t)),
-    o:A.o.map((o,k)=>{const b=B.o[k]||o;return {x:lerp(o.x,b.x,t),y:lerp(o.y,b.y,t),r:lerpA(o.r||0,b.r||0,t),s:lerp(o.s||1,b.s||1,t)};}),d:A.d,bg:A.bg}};
+    o:A.o.map((o,k)=>{if(o.h)return {h:1};let b=B.o[k]||o;if(b.h)b=o;return {x:lerp(o.x,b.x,t),y:lerp(o.y,b.y,t),r:lerpA(o.r||0,b.r||0,t),s:lerp(o.s||1,b.s||1,t)};}),d:A.d,bg:A.bg}};
 }
 
-let playing=false,playT=0,last=0,drag=null,mode='move',pen=PENS[0],lastFrame=-1,lastPos=-1,bus=null,selSnd=-1,selProp=-1;
+let selFig=-1,playing=false,playT=0,last=0,drag=null,mode='move',pen=PENS[0],lastFrame=-1,lastPos=-1,bus=null,selSnd=-1,selProp=-1;
 let view={z:1,x:0,y:0};
 function scaleK(){const r=cv.getBoundingClientRect();return (r.width?W/r.width:1)/view.z;}
 function clampView(){view.z=Math.max(1,Math.min(6,view.z));view.x=Math.min(0,Math.max(W-W*view.z,view.x));view.y=Math.min(0,Math.max(H-H*view.z,view.y));$('bZoom').hidden=view.z<1.01;}
 function resetView(){view={z:1,x:0,y:0};clampView();}
+function figX(i){const p=S.frames[S.cur].p[i];return {x:p.x+48*(S.figs[i].sc||1),y:p.y+14};}
 function tfHandle(o,pr){const R=rOf(pr)*(o.s||1),a=((o.r||0)-45)*Math.PI/180;return {x:o.x+Math.cos(a)*(R+18),y:o.y+Math.sin(a)*(R+18)};}
 function delHandle(o,pr){const R=rOf(pr)*(o.s||1),a=((o.r||0)+135)*Math.PI/180;return {x:o.x+Math.cos(a)*(R+18),y:o.y+Math.sin(a)*(R+18)};}
 function render(fr){
@@ -731,9 +741,14 @@ function render(fr){
   if(fr){drawFrame(ctx,fr);return;}
   const F=S.frames[S.cur];
   drawFrame(ctx,F,{ghost:S.cur>0?S.frames[S.cur-1]:null,edit:true});
+  if(mode==='erase'&&eraseAt){ctx.save();ctx.lineWidth=2*scaleK();ctx.strokeStyle='#1d2742';ctx.setLineDash([5*scaleK(),4*scaleK()]);
+    ctx.beginPath();ctx.arc(eraseAt[0],eraseAt[1],eraserW()/2,0,7);ctx.stroke();ctx.restore();}
   if(mode!=='move')return;
   const k=scaleK();F.p.forEach((p,i)=>{if(!S.figs[i].hidden)drawHandles(ctx,p,k,S.figs[i].sc);});
-  if(selProp>=0&&F.o[selProp]){const o=F.o[selProp],pr=S.props[selProp],R=rOf(pr)*(o.s||1),hr=Math.max(13,10*k);
+  if(selFig>=0&&F.p[selFig]&&!S.figs[selFig].hidden){const fx=figX(selFig),hr=Math.max(13,10*k);
+    ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.fillStyle='#e6334d';ctx.beginPath();ctx.arc(fx.x,fx.y,hr,0,7);ctx.fill();ctx.stroke();
+    const q=hr*.4;ctx.beginPath();ctx.moveTo(fx.x-q,fx.y-q);ctx.lineTo(fx.x+q,fx.y+q);ctx.moveTo(fx.x+q,fx.y-q);ctx.lineTo(fx.x-q,fx.y+q);ctx.stroke();}
+  if(selProp>=0&&F.o[selProp]&&!F.o[selProp].h){const o=F.o[selProp],pr=S.props[selProp],R=rOf(pr)*(o.s||1),hr=Math.max(13,10*k);
     ctx.save();ctx.setLineDash([8,6]);ctx.strokeStyle='#ff7a1a';ctx.lineWidth=3;ctx.beginPath();ctx.arc(o.x,o.y,R+8,0,7);ctx.stroke();ctx.restore();
     const th=tfHandle(o,pr),dh=delHandle(o,pr);
     ctx.lineWidth=3;ctx.strokeStyle='#fff';
@@ -910,6 +925,7 @@ function update(doSave=true){$('badge').textContent=fa(S.cur+1)+' / '+fa(S.frame
   $('loopIco').textContent=S.loop?'🔁':'1️⃣';
   const L=S.frames[S.cur].len;$('lenTxt').textContent='⏱ '+fa(L);$('lenMinus').disabled=L<=1;$('lenPlus').disabled=L>=8;
   if(selFrames){for(const i of [...selFrames])if(i>=S.frames.length)selFrames.delete(i);if(!selFrames.size)selFrames=null;}selUI();
+  if(selFig>=S.figs.length)selFig=-1;if(selProp>=S.props.length)selProp=-1;
   fixCollisions();buildTimeline();render();if(doSave)save();}
 
 /* brush sizes and colors */
@@ -949,10 +965,12 @@ function strokeHit(s,x,y,r){const p=s.pts,k=s.k||'pen',R=r+(s.w||0)/2;
   if(p.length===2)return Math.hypot(p[0]-x,p[1]-y)<R;
   for(let i=2;i<p.length;i+=2)if(segDist(x,y,p[i-2],p[i-1],p[i],p[i+1])<R)return true;return false;}
 /* eraser drags remove lines and shapes; a tap inside a bucket fill removes that fill */
-function eraseAt(x,y,r){const fr=S.frames[S.cur],before=fr.d.length;fr.d=fr.d.filter(s=>s.k==='fill'||!strokeHit(s,x,y,r));return before!==fr.d.length;}
+function eraseAtOld(x,y,r){const fr=S.frames[S.cur],before=fr.d.length;fr.d=fr.d.filter(s=>s.k==='fill'||!strokeHit(s,x,y,r));return before!==fr.d.length;}
 function eraseFillAt(x,y){const fr=S.frames[S.cur];for(let i=fr.d.length-1;i>=0;i--){const s=fr.d[i];if(s.k==='fill'&&strokeHit(s,x,y,0)){fr.d.splice(i,1);return true;}}return false;}
 function removeProp(i){S.props.splice(i,1);S.frames.forEach(f=>f.o.splice(i,1));}
-function propAt(fr,x,y,pad){for(let i=fr.o.length-1;i>=0;i--){const o=fr.o[i];if(o&&Math.hypot(o.x-x,o.y-y)<rOf(S.props[i])*(o.s||1)+pad)return i;}return -1;}
+/* deleting an object takes it out of this frame only; it is dropped for good once no frame shows it */
+function hideProp(i){const o=S.frames[S.cur].o[i];if(o)o.h=1;if(S.frames.every(f=>!f.o[i]||f.o[i].h))removeProp(i);}
+function propAt(fr,x,y,pad){for(let i=fr.o.length-1;i>=0;i--){const o=fr.o[i];if(o&&!o.h&&Math.hypot(o.x-x,o.y-y)<rOf(S.props[i])*(o.s||1)+pad)return i;}return -1;}
 cv.addEventListener('pointerdown',e=>{
   ptrs.set(e.pointerId,[e.clientX,e.clientY]);
   if(ptrs.size>=2){if(!pinch&&!playing)beginPinch();return;}
@@ -963,29 +981,21 @@ cv.addEventListener('pointerdown',e=>{
   if(mode==='pen'||mode==='mark'||mode==='rb'){snap();const s={c:pen,w:mode==='mark'?Math.round(brush*2.2):brush,pts:[X,Y]};if(mode!=='pen')s.k=mode;fr.d.push(s);drag={stroke:s};}
   else if(mode==='line'||mode==='rect'||mode==='oval'){snap();const s={k:mode,c:pen,w:brush,pts:[X,Y,X,Y]};fr.d.push(s);drag={shape:s};}
   else if(mode==='fill'){snap();if(doFill(x,y,pen)){buildTimeline();save();render();}else{hist.pop();undoBtns();}return;}
-  else if(mode==='erase'){
-    snap();const r=Math.max(12*k,brush+8);
-    if(!eraseAt(x,y,r)&&!eraseFillAt(x,y)){
-      const hit=propAt(fr,x,y,6);
-      if(hit>=0){removeProp(hit);selProp=-1;update();return;}
-      let fh=-1;fr.p.forEach((p,i)=>{if(S.figs[i].hidden)return;const j=solve(p,S.figs[i].sc);for(const b of BONES){const s=j[b.id];
-        if(segDist(x,y,s.sx,s.sy,s.ex,s.ey)<(b.id==='head'?30:18))fh=i;}});
-      if(fh>=0){S.figs.splice(fh,1);S.frames.forEach(f=>f.p.splice(fh,1));update();return;}
-    }
-    drag={erase:true,r};
-  }
+  else if(mode==='erase'){snap();const s={k:'er',w:eraserW(),pts:[X,Y]};fr.d.push(s);drag={stroke:s};eraseAt=[x,y];}
   else{
     const lim=Math.max(30,24*k);
     if(selProp>=0&&fr.o[selProp]){const o=fr.o[selProp],pr=S.props[selProp],dh=delHandle(o,pr),th=tfHandle(o,pr);
-      if(Math.hypot(dh.x-x,dh.y-y)<lim*.8){snap();removeProp(selProp);selProp=-1;update();return;}
+      if(Math.hypot(dh.x-x,dh.y-y)<lim*.8){snap();hideProp(selProp);selProp=-1;update();return;}
       if(Math.hypot(th.x-x,th.y-y)<lim*.8){drag={tf:selProp,pending:true};cv.setPointerCapture(e.pointerId);e.preventDefault();return;}}
+    if(selFig>=0&&fr.p[selFig]){const fx=figX(selFig);
+      if(Math.hypot(fx.x-x,fx.y-y)<lim*.8){snap();S.figs.splice(selFig,1);S.frames.forEach(f=>f.p.splice(selFig,1));selFig=-1;update();return;}}
     let best=null,bd=lim;
     fr.p.forEach((p,fi)=>{if(S.figs[fi].hidden)return;const j=solve(p,S.figs[fi].sc);
       for(const b of BONES){const d=Math.hypot(j[b.id].ex-x,j[b.id].ey-y);if(d<bd){bd=d;best={fi,bone:b};}}
       const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best={fi,root:true,ox:p.x-x,oy:p.y-y};}});
     if(best){selProp=-1;}
     else{const i=propAt(fr,x,y,8*k);if(i>=0){selProp=i;const o=fr.o[i];best={prop:i,ox:o.x-x,oy:o.y-y};}}
-    if(!best){if(selProp>=0){selProp=-1;render();}return;}
+    if(!best){if(selProp>=0||selFig>=0){selProp=-1;selFig=-1;render();}return;}
     best.pending=true;drag=best;
   }
   cv.setPointerCapture(e.pointerId);e.preventDefault();render();
@@ -995,9 +1005,9 @@ cv.addEventListener('pointermove',e=>{
   if(pinch){if(ptrs.size>=2)doPinch();return;}
   if(!drag)return;const [x,y]=pt(e),fr=S.frames[S.cur];
   if(drag.pending){snap();drag.pending=false;}
+  if(drag.stroke&&drag.stroke.k==='er')eraseAt=[x,y];
   if(drag.stroke){const p=drag.stroke.pts,lx=p[p.length-2],ly=p[p.length-1];if(Math.hypot(x-lx,y-ly)>=3)p.push(Math.round(x),Math.round(y));}
   else if(drag.shape){drag.shape.pts[2]=Math.round(x);drag.shape.pts[3]=Math.round(y);}
-  else if(drag.erase){eraseAt(x,y,drag.r);}
   else if(drag.tf!==undefined){const o=fr.o[drag.tf],pr=S.props[drag.tf],R=rOf(pr);
     o.r=Math.atan2(y-o.y,x-o.x)*180/Math.PI+45;o.s=Math.max(.25,Math.min(5,(Math.hypot(x-o.x,y-o.y)-18)/R));}
   else if(drag.prop!==undefined){const o=fr.o[drag.prop];o.x=Math.max(0,Math.min(W,x+drag.ox));o.y=Math.max(0,Math.min(H,y+drag.oy));}
@@ -1010,7 +1020,9 @@ cv.addEventListener('pointermove',e=>{
 const end=e=>{ptrs.delete(e.pointerId);
   if(pinch){if(ptrs.size<2){pinch=null;ignorePtr=ptrs.size>0;}return;}
   if(!ptrs.size)ignorePtr=false;
+  eraseAt=null;
   if(drag){if(drag.shape){const p=drag.shape.pts,d=S.frames[S.cur].d;if(Math.hypot(p[2]-p[0],p[3]-p[1])<4){const i=d.indexOf(drag.shape);if(i>=0)d.splice(i,1);}}
+  if(drag.root&&drag.pending)selFig=selFig===drag.fi?-1:drag.fi;else if(!drag.root)selFig=-1;
   const changed=!drag.pending;drag=null;if(changed){buildTimeline();save();}undoBtns();render();}};
 cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
 
@@ -1079,16 +1091,16 @@ function unRig(){snap();S.figs.forEach(f=>{if(f.skin&&f.skin.length&&!f.id)f.id=
 function autoRig(){stop();const fr=S.frames[S.cur],b=$('bRig');
   const nope=()=>{b.classList.remove('pulse');void b.offsetWidth;b.classList.add('pulse');};
   if(isRigged()){unRig();return;}
-  if(!fr.d.length){nope();return;}
+  if(!fr.d.some(s=>s.k!=='er')){nope();return;}
   const js=fr.p.map((p,i)=>solve(p,S.figs[i].sc)),take=[],back=[];
   fr.d.forEach((s,si)=>{if(!s.rg)return;const fi=S.figs.findIndex(f=>f.id===s.rg);if(fi>=0)back.push([si,fi]);});
   const isBack=new Set(back.map(t=>t[0]));
-  fr.d.forEach((s,si)=>{if(isBack.has(si))return;let pts;if(s.k==='fill'){if(s.w*s.h>W*H*.35)return;pts=[[s.x+s.w/2,s.y+s.h/2]];}else pts=polyOf(s).pts;
+  fr.d.forEach((s,si)=>{if(isBack.has(si)||s.k==='er')return;let pts;if(s.k==='fill'){if(s.w*s.h>W*H*.35)return;pts=[[s.x+s.w/2,s.y+s.h/2]];}else pts=polyOf(s).pts;
     let bf=-1,bd=1e9;js.forEach((j,fi)=>{if(S.figs[fi].hidden)return;let sum=0;pts.forEach(([x,y])=>sum+=figDist(j,x,y));const avg=sum/pts.length;if(avg<bd){bd=avg;bf=fi;}});
     if(bf>=0&&bd<75)take.push([si,bf]);});
   /* drawings away from every figure: group touching strokes, and give each character-sized group its own skeleton */
   const taken=new Set([...take.map(t=>t[0]),...isBack]),rest=[];
-  fr.d.forEach((s,si)=>{if(!taken.has(si)&&!(s.k==='fill'&&s.w*s.h>W*H*.35))rest.push(si);});
+  fr.d.forEach((s,si)=>{if(!taken.has(si)&&s.k!=='er'&&!(s.k==='fill'&&s.w*s.h>W*H*.35))rest.push(si);});
   const boxes=rest.map(si=>strokeBox(fr.d[si])),par=rest.map((_,i)=>i),root=i=>par[i]===i?i:(par[i]=root(par[i]));
   const touch=(a,c)=>a[0]-25<c[2]&&c[0]-25<a[2]&&a[1]-25<c[3]&&c[1]-25<a[3];
   for(let i=0;i<rest.length;i++)for(let k=i+1;k<rest.length;k++)if(touch(boxes[i],boxes[k]))par[root(i)]=root(k);
@@ -1112,7 +1124,7 @@ function addProp(type){stop();if(S.props.length>=40)return;snap();
   const pr={type,color:PROP_COLORS[S.props.length%4]},R=rOf(pr),it=type.startsWith('v:')?LIBBY[type.slice(2)]:null;
   const n=S.props.length,x=160+((n*113)%480),air=type==='star'||(it&&it.air);
   const y=air?150:GROUND-R*.9;
-  S.props.push(pr);S.frames.forEach(fr=>fr.o.push({x,y,r:0,s:1}));selProp=S.props.length-1;setMode('move');update();}
+  S.props.push(pr);S.frames.forEach((fr,k)=>fr.o.push(k===S.cur?{x,y,r:0,s:1}:{x,y,r:0,s:1,h:1}));selProp=S.props.length-1;setMode('move');update();}
 
 /* ---------- object library ---------- */
 const libBox=$('lib');let libTab='home',armedAsset=null;
