@@ -1,7 +1,7 @@
 {
- "apk": 13,
+ "apk": 14,
  "minApk": 10,
- "web": 13,
+ "web": 14,
  "webNeedsApk": 10,
  "apkUrl": "https://kakadoo91.github.io/adamak-saz/AdamakSaz.apk",
  "files": [
@@ -11,7 +11,7 @@
   },
   {
    "p": "index.html",
-   "h": "d9e6ba83123ffb469a60dcb9c84654a606881d792694afa5b60c04524b1dfec8"
+   "h": "9d03eea70abc8a7dff35ec3ca5d72d4441bb9d3e0dc32d013b8275f66304da44"
   },
   {
    "p": "mp4-muxer.js",
@@ -23,7 +23,7 @@
   },
   {
    "p": "version.txt",
-   "h": "1a252402972f6057fa53cc172b52b9ffca698e18311facd0f3b06ecaaef79e17"
+   "h": "9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25"
   }
  ]
 }
